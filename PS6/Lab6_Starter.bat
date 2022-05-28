@@ -1,0 +1,1 @@
+sqlplus -S [C##_UD_TRUST]/@DEV @Code/LAB6_STARTER.SQL

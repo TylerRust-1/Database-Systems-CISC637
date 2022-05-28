@@ -1,0 +1,290 @@
+CREATE OR REPLACE TRIGGER trg02_course BEFORE
+    INSERT ON course
+    FOR EACH ROW
+BEGIN
+    IF inserting THEN
+        :new.created_by := user;
+        :new.created_date := sysdate;
+    END IF;
+
+    :new.modified_by := user;
+    :new.modified_date := sysdate;
+END;
+
+/
+
+CREATE OR REPLACE TRIGGER trg02_section BEFORE
+    INSERT ON section
+    FOR EACH ROW
+BEGIN
+    IF inserting THEN
+        :new.created_by := user;
+        :new.created_date := sysdate;
+    END IF;
+
+    :new.modified_by := user;
+    :new.modified_date := sysdate;
+END;
+/
+
+CREATE OR REPLACE TRIGGER trg02_student BEFORE
+    INSERT ON student
+    FOR EACH ROW
+BEGIN
+    IF inserting THEN
+        :new.created_by := user;
+        :new.created_date := sysdate;
+    END IF;
+
+    :new.modified_by := user;
+    :new.modified_date := sysdate;
+END;
+/
+
+CREATE OR REPLACE TRIGGER trg02_enrollment BEFORE
+    INSERT ON enrollment
+    FOR EACH ROW
+BEGIN
+    IF inserting THEN
+        :new.created_by := user;
+        :new.created_date := sysdate;
+    END IF;
+
+    :new.modified_by := user;
+    :new.modified_date := sysdate;
+END;
+/
+
+--	Get rid of all fk and pk
+DECLARE
+    v_sql VARCHAR2(2000);
+    CURSOR c_pk IS
+    SELECT
+        *
+    FROM
+        user_constraints
+    WHERE
+        constraint_type = 'P';
+
+    CURSOR c_fk (
+        pk_name VARCHAR2
+    ) IS
+    SELECT
+        *
+    FROM
+        user_constraints
+    WHERE
+        constraint_type = 'R'
+        AND r_constraint_name = pk_name;
+
+BEGIN
+    FOR r_pk IN c_pk LOOP
+        FOR r_fk IN c_fk(r_pk.constraint_name) LOOP
+            v_sql := 'ALTER TABLE '
+                     || r_fk.table_name
+                     || ' DROP CONSTRAINT '
+                     || r_fk.constraint_name;
+            EXECUTE IMMEDIATE v_sql;
+        END LOOP;
+
+        v_sql := 'ALTER TABLE '
+                 || r_pk.table_name
+                 || ' DROP CONSTRAINT '
+                 || r_pk.constraint_name;
+        EXECUTE IMMEDIATE v_sql;
+    END LOOP;
+END;
+/
+
+
+
+
+CREATE TABLE SCHOOL 
+(
+  SCHOOL_ID NUMBER(8,0) NOT NULL 
+, SCHOOL_NAME VARCHAR2(30) NOT NULL 
+, CREATED_BY VARCHAR2(30) NOT NULL 
+, CREATED_DATE DATE NOT NULL 
+, MODIFIED_BY VARCHAR2(30) NOT NULL 
+, MODIFIED_DATE DATE NOT NULL 
+, CONSTRAINT SCHOOL_PK PRIMARY KEY 
+  (
+    SCHOOL_ID 
+  )
+  ENABLE 
+);
+
+Insert into SCHOOL (SCHOOL_ID,SCHOOL_NAME,CREATED_BY,CREATED_DATE,MODIFIED_BY,MODIFIED_DATE) values (1,'UD','SYSTEM',to_date('05-FEB-22','DD-MON-RR'),'SYSTEM',to_date('05-FEB-22','DD-MON-RR'));
+
+ALTER TABLE COURSE 
+ADD (SCHOOL_ID NUMBER(8,0)  );
+
+ALTER TABLE COURSE 
+ADD (PREREQUISITE_SCHOOL_ID NUMBER(8,0));
+
+UPDATE COURSE
+SET SCHOOL_ID = 1,
+    PREREQUISITE_SCHOOL_ID = 1;
+
+ALTER TABLE COURSE  
+MODIFY (SCHOOL_ID NOT NULL);
+
+
+ALTER TABLE COURSE
+ADD CONSTRAINT COURSE_PK PRIMARY KEY 
+(
+  COURSE_NO 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE SECTION 
+ADD (SCHOOL_ID NUMBER(8,0));
+
+UPDATE SECTION
+SET SCHOOL_ID = 1;
+
+ALTER TABLE SECTION  
+MODIFY (SCHOOL_ID NOT NULL);
+
+
+ALTER TABLE SECTION
+ADD CONSTRAINT SECTION_PK PRIMARY KEY 
+(
+  SECTION_ID 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE STUDENT 
+ADD (SCHOOL_ID NUMBER(8,0));
+
+UPDATE STUDENT
+SET SCHOOL_ID = 1;
+
+ALTER TABLE STUDENT  
+MODIFY (SCHOOL_ID NOT NULL);
+
+
+ALTER TABLE STUDENT
+ADD CONSTRAINT STUDENT_PK PRIMARY KEY 
+(
+  STUDENT_ID 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE ENROLLMENT 
+ADD (SCHOOL_ID NUMBER(8,0) );
+
+UPDATE ENROLLMENT
+SET SCHOOL_ID = 1;
+
+ALTER TABLE ENROLLMENT  
+MODIFY (SCHOOL_ID NOT NULL);
+
+
+ALTER TABLE ENROLLMENT
+ADD CONSTRAINT ENROLLMENT_PK PRIMARY KEY 
+(
+  SECTION_ID
+, STUDENT_ID 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE COURSE
+ADD CONSTRAINT COURSE_FK1 FOREIGN KEY
+(
+  PREREQUISITE 
+, PREREQUISITE_SCHOOL_ID 
+)
+REFERENCES COURSE
+(
+  COURSE_NO 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE SECTION
+ADD CONSTRAINT SECTION_FK1 FOREIGN KEY
+(
+  COURSE_NO 
+, SCHOOL_ID 
+)
+REFERENCES COURSE
+(
+  COURSE_NO 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE ENROLLMENT
+ADD CONSTRAINT ENROLLMENT_FK1 FOREIGN KEY
+(
+  SECTION_ID 
+, SCHOOL_ID 
+)
+REFERENCES SECTION
+(
+  SECTION_ID 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE ENROLLMENT
+ADD CONSTRAINT ENROLLMENT_FK2 FOREIGN KEY
+(
+  STUDENT_ID 
+, SCHOOL_ID 
+)
+REFERENCES STUDENT
+(
+  STUDENT_ID 
+, SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE COURSE
+ADD CONSTRAINT COURSE_FK2 FOREIGN KEY
+(
+  SCHOOL_ID 
+)
+REFERENCES SCHOOL
+(
+  SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE ENROLLMENT
+ADD CONSTRAINT ENROLLMENT_FK3 FOREIGN KEY
+(
+  SCHOOL_ID 
+)
+REFERENCES SCHOOL
+(
+  SCHOOL_ID 
+)
+ENABLE;
+ALTER TABLE SECTION
+ADD CONSTRAINT SECTION_FK2 FOREIGN KEY
+(
+  SCHOOL_ID 
+)
+REFERENCES SCHOOL
+(
+  SCHOOL_ID 
+)
+ENABLE;
+
+ALTER TABLE STUDENT
+ADD CONSTRAINT STUDENT_FK1 FOREIGN KEY
+(
+  SCHOOL_ID 
+)
+REFERENCES SCHOOL
+(
+  SCHOOL_ID 
+)
+ENABLE;
+

@@ -1,0 +1,142 @@
+CREATE TABLE CATEGORIES
+(
+  CATEGORY_ID NUMBER NOT NULL 
+, CATEGORY_COL VARCHAR2(30) 
+, QUERY_COL VARCHAR2(2000) 
+, CONSTRAINT CATEGORIES2_PK PRIMARY KEY 
+  (
+    CATEGORY_ID 
+  )
+  ENABLE 
+);
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(1, 'Banking', 'ABOUT(banking)');
+
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(2, 'Foreign', 'International NOT (United States | US)');
+
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(3, 'Microsoft', 'ABOUT(Excel)');
+
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(4, 'English-Primary-Speaking', 'United States | Great Britain');
+
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(5, 'Oracle DB', 'Oracle NEAR Database');
+
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(6, 'Administrator', 'ABOUT(administrator)');
+
+
+INSERT INTO CATEGORIES(CATEGORY_ID, CATEGORY_COL, QUERY_COL) 
+VALUES(7, 'Investment Management', 'Management NEAR Investment');
+
+
+
+
+CREATE INDEX IDX_CTXRULE_CATEGORIES ON CATEGORIES(query_col)
+     INDEXTYPE IS ctxsys.ctxrule;
+     
+    
+     
+select CATEGORY_COL from CATEGORIES
+     where matches(QUERY_COL, 
+                   (SELECT RSME_OBJ FROM RSME_CLOB WHERE RSME_ID = 11))>0;
+                   
+                   
+select MATCH_SCORE(1), CATEGORY_COL from CATEGORIES
+     where matches(QUERY_COL, 
+                   (SELECT RSME_OBJ FROM RSME_CLOB WHERE RSME_ID = 5), 1)>0;
+
+
+
+
+
+--SVM_CLASSIFIER CODE FOR MATCH_SCORE
+
+CREATE TABLE CATEGORIES_FOR_SVM_CLASSIFIER 
+(
+  RSME_ID NUMBER 
+, CATEGORY_ID NUMBER NOT NULL 
+, CATEGORY_COL VARCHAR2(30) 
+, CONSTRAINT CATEGORIES_FOR_SVM_CLASSIFIER2_PK PRIMARY KEY 
+  (
+    CATEGORY_ID 
+  )
+  ENABLE 
+);
+
+ALTER TABLE CATEGORIES_FOR_SVM_CLASSIFIER
+ADD CONSTRAINT CATEGORIES_FOR_SVM_CLASSIFIER_FK1 FOREIGN KEY
+(
+  RSME_ID 
+)
+REFERENCES RSME_CLOB
+(
+  RSME_ID 
+)
+ENABLE;
+
+
+INSERT INTO CATEGORIES_FOR_SVM_CLASSIFIER(RSME_ID, CATEGORY_ID, CATEGORY_COL) 
+VALUES(20, 1, 'Banking');
+
+
+INSERT INTO CATEGORIES_FOR_SVM_CLASSIFIER(RSME_ID, CATEGORY_ID, CATEGORY_COL) 
+VALUES(4, 2, 'Foreign');
+
+
+
+INSERT INTO CATEGORIES_FOR_SVM_CLASSIFIER(RSME_ID, CATEGORY_ID, CATEGORY_COL) 
+VALUES(2,3, 'Microsoft');
+
+
+INSERT INTO CATEGORIES_FOR_SVM_CLASSIFIER(RSME_ID, CATEGORY_ID, CATEGORY_COL) 
+VALUES(11, 4, 'English-Primary-Speaking');
+
+
+
+INSERT INTO CATEGORIES_FOR_SVM_CLASSIFIER(RSME_ID, CATEGORY_ID, CATEGORY_COL) 
+VALUES(9, 5, 'Administrator');
+
+
+INSERT INTO CATEGORIES_FOR_SVM_CLASSIFIER(RSME_ID, CATEGORY_ID, CATEGORY_COL) 
+VALUES(6, 6, 'Investment Management');
+
+
+create index SVM_CLASSIFIER_CONTEXT_IDX on RSME_CLOB(RSME_OBJ) indextype is ctxsys.context 
+       parameters('nopopulate');
+       
+exec ctx_ddl.create_preference('my_classifier','SVM_CLASSIFIER'); 
+exec ctx_ddl.set_attribute('my_classifier','MAX_FEATURES','100');
+
+create table restab (
+  CAT_ID number,
+  type NUMBER(3) not null,
+  rule BLOB
+ );
+
+
+exec ctx_cls.train('SVM_CLASSIFIER_CONTEXT_IDX', 'RSME_ID','CATEGORIES_FOR_SVM_CLASSIFIER','RSME_ID','CATEGORY_ID','restab','my_classifier');
+
+
+exec ctx_ddl.create_preference('my_filter','NULL_FILTER');
+create index restabx on restab (rule) 
+       indextype is ctxsys.ctxrule 
+       parameters ('filter my_filter classifier my_classifier');
+       
+       
+select r.cat_id, c.CATEGORY_COL, match_score(1) from restab r
+INNER JOIN CATEGORIES_FOR_SVM_CLASSIFIER c
+ON r.cat_id = c.CATEGORY_ID
+       where matches(rule, (SELECT RSME_OBJ FROM RSME_CLOB WHERE RSME_ID = 1),1)>0
+       ORDER BY MATCH_SCORE(1) DESC;
+       
+       
+       
